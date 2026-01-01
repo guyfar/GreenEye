@@ -18,3 +18,19 @@ package-lock.json
 # Build
 dist/
 build/
+*.zip
+
+# Store assets - keep only final versions
+store-assets/product-ui.png
+store-assets/promo-large.png
+store-assets/design-philosophy.md
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Temp
+*.tmp
+*.temp
