@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>护眼阅读助手</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <!-- 头部 -->
+    <header class="header">
+      <div class="logo">
+        <span class="logo-icon">🌿</span>
+        <span class="logo-text">护眼阅读助手</span>
+      </div>
+    </header>
+
+    <!-- 主开关 -->
+    <section class="section switch-section">
+      <div class="switch-row">
+        <span class="switch-label">护眼模式</span>
+        <label class="switch">
+          <input type="checkbox" id="mainSwitch">
+          <span class="slider"></span>
+        </label>
+      </div>
+    </section>
+
+    <!-- 蓝光过滤 -->
+    <section class="section" id="blueFilterSection">
+      <div class="section-header">
+        <span class="section-title">蓝光过滤</span>
+        <span class="section-value" id="blueFilterValue">30%</span>
+      </div>
+      <div class="slider-container">
+        <input type="range" id="blueFilter" min="0" max="100" value="30" class="range-slider">
+      </div>
+    </section>
+
+    <!-- 主题选择 -->
+    <section class="section" id="themeSection">
+      <div class="section-header">
+        <span class="section-title">快速主题</span>
+      </div>
+      <div class="theme-grid">
+        <button class="theme-btn" data-theme="green" title="豆沙绿">
+          <span class="theme-color" style="background: #C7EDCC"></span>
+          <span class="theme-name">豆沙绿</span>
+        </button>
+        <button class="theme-btn" data-theme="paper" title="羊皮纸">
+          <span class="theme-color" style="background: #FAF9DE"></span>
+          <span class="theme-name">羊皮纸</span>
+        </button>
+        <button class="theme-btn" data-theme="warm" title="暖夜灯">
+          <span class="theme-color" style="background: #FDF5E6"></span>
+          <span class="theme-name">暖夜灯</span>
+        </button>
+        <button class="theme-btn" data-theme="dark" title="深邃黑">
+          <span class="theme-color" style="background: #1A1A1A"></span>
+          <span class="theme-name">深邃黑</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- 网站记忆 -->
+    <section class="section" id="siteMemorySection">
+      <div class="site-memory-row">
+        <div class="site-info">
+          <span class="site-icon">🌐</span>
+          <span class="site-domain" id="currentDomain">-</span>
+        </div>
+        <button class="btn-save" id="saveSiteBtn" title="为此网站保存当前设置">
+          记住设置
+        </button>
+      </div>
+      <div class="site-saved-hint" id="siteSavedHint">
+        ✓ 已为此网站保存设置
+      </div>
+    </section>
+
+    <!-- 底部 -->
+    <footer class="footer">
+      <span class="footer-text">保护眼睛，从现在开始</span>
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
