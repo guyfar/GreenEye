@@ -36,11 +36,44 @@ const DEFAULT_SETTINGS = {
   enabled: false,
   theme: 'green',
   blueFilter: 30,
-  customSettings: {}
+  customSettings: {},
+  autoDetectDarkMode: true  // 是否自动检测深色模式
 };
 
 // 当前设置
 let currentSettings = { ...DEFAULT_SETTINGS };
+
+// 初始深色模式检测结果（只在页面加载时检测一次）
+let initialDarkModeDetected = null;
+
+// 检测网站是否使用深色模式（只在首次调用时检测，之后缓存结果）
+function detectDarkMode() {
+  // 如果已经检测过，返回缓存的结果
+  if (initialDarkModeDetected !== null) {
+    return initialDarkModeDetected;
+  }
+
+  // 首次检测，在我们的样式应用之前进行
+  let isDark = false;
+
+  // 检测 CSS prefers-color-scheme
+  if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    isDark = true;
+  }
+
+  // 检测常见深色模式类名（这个不受我们样式影响）
+  if (!isDark) {
+    const html = document.documentElement;
+    const body = document.body;
+    const darkClassPatterns = ['dark', 'night', 'theme-dark', 'dark-mode', 'dark-theme'];
+    const classNames = (html.className + ' ' + (body?.className || '')).toLowerCase();
+    isDark = darkClassPatterns.some(pattern => classNames.includes(pattern));
+  }
+
+  // 缓存结果
+  initialDarkModeDetected = isDark;
+  return isDark;
+}
 
 // 获取当前网站域名
 function getCurrentDomain() {
@@ -109,16 +142,22 @@ function applyBlueFilter(intensity) {
     matrix.setAttribute('values', matrixValues);
 
     style.textContent = `
-      html {
-        filter: url(#blue-light-filter) !important;
+      @media screen {
+        html {
+          filter: url(#blue-light-filter) !important;
+        }
       }
-      /* 图片和视频保持原色 */
-      img, video, canvas, svg:not(#eye-care-svg-filter) {
-        filter: none !important;
+      @media print {
+        html {
+          filter: none !important;
+        }
       }
     `;
   } else {
+    // 强度为0时，清理样式和SVG滤镜
     style.textContent = '';
+    const svgFilter = document.getElementById('eye-care-svg-filter');
+    if (svgFilter) svgFilter.remove();
   }
 }
 
@@ -132,48 +171,118 @@ function applyTheme(themeName) {
     return;
   }
 
+  // 根据主题确定代码块和卡片背景色
+  const codeBg = themeName === 'dark' ? '#2d2d2d' : `color-mix(in srgb, ${theme.background} 90%, ${theme.text} 10%)`;
+  const cardBg = themeName === 'dark' ? '#252525' : theme.background;
+
   style.textContent = `
-    /* 背景色替换 */
-    html, body {
-      background-color: ${theme.background} !important;
-    }
+    @media screen {
+      /* ========== 护眼主题：${theme.name} ========== */
 
-    /* 常见容器背景 */
-    article, main, section, div, aside, header, footer, nav,
-    .container, .content, .wrapper, .main, .article, .post,
-    [class*="content"], [class*="article"], [class*="post"],
-    [class*="container"], [class*="wrapper"], [class*="main"] {
-      background-color: ${theme.background} !important;
-    }
+      /* 说明：只改 background-color / color，避免使用 background 简写破坏 background-image */
 
-    /* 文字颜色 */
-    body, p, span, div, article, section, main, li, td, th,
-    h1, h2, h3, h4, h5, h6 {
-      color: ${theme.text} !important;
-    }
+      /* 1. 根元素和主体背景 */
+      html, body {
+        background-color: ${theme.background} !important;
+        color: ${theme.text} !important;
+      }
 
-    /* 链接颜色 */
-    a, a:visited {
-      color: ${theme.link} !important;
-    }
+      /* 2. 通用容器背景 - 只设置 background-color */
+      div:not(.img):not([role="dialog"]):not([role="alertdialog"]):not([role="tooltip"]):not([aria-modal="true"]):not([style*="position: fixed"]):not([style*="position:fixed"]):not([class*="nav"]):not([class*="menu"]):not([class*="sidebar"]):not([class*="modal"]):not([class*="popup"]):not([class*="dropdown"]):not([class*="tooltip"]):not([class*="dialog"]):not([class*="overlay"]):not([class*="header"]):not([class*="footer"]):not([class*="toolbar"]):not([class*="btn"]):not([class*="button"]):not([class*="icon"]):not([class*="avatar"]):not([class*="logo"]):not([class*="img"]):not([class*="image"]):not([class*="video"]):not([class*="player"]):not([class*="slider"]):not([class*="carousel"]):not([class*="tab"]):not([class*="chip"]):not([class*="badge"]):not([class*="tag"]):not([class*="label"]):not([class*="toast"]):not([class*="snack"]):not([class*="alert"]):not([class*="notification"]):not([class*="resizable"]) {
+        background-color: ${theme.background} !important;
+      }
 
-    /* 输入框 */
-    input, textarea, select {
-      background-color: ${theme.background} !important;
-      color: ${theme.text} !important;
-      border-color: ${theme.text}40 !important;
-    }
+      /* 3. 主要内容区域 */
+      article, main, section:not([class*="nav"]):not([class*="menu"]),
+      .article, .post, .content, .content-body, .post-content, .entry-content,
+      .markdown-body, .rich-text, .text-content, .page-content,
+      .wrapper, .container:not([class*="nav"]):not([class*="menu"]) {
+        background-color: ${theme.background} !important;
+      }
 
-    /* 表格 */
-    table, tr, td, th {
-      background-color: ${theme.background} !important;
-      border-color: ${theme.text}30 !important;
-    }
+      /* 4. 输入框和表单元素 */
+      input:not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+      textarea,
+      [contenteditable="true"],
+      .input, .textarea, .search-box, .search-input, .searchbar,
+      [class*="input"]:not([class*="btn"]):not([class*="button"]),
+      [class*="search"]:not([class*="btn"]):not([class*="button"]):not([class*="icon"]) {
+        background-color: ${cardBg} !important;
+        color: ${theme.text} !important;
+        border-color: ${theme.text}30 !important;
+      }
 
-    /* 代码块特殊处理 */
-    pre, code {
-      background-color: ${themeName === 'dark' ? '#2d2d2d' : theme.background} !important;
-      color: ${theme.text} !important;
+      /* 5. 卡片和面板 */
+      .card, .panel, .box, .block, .tile, .item,
+      [class*="card"]:not([class*="icon"]),
+      [class*="panel"],
+      [class*="box"]:not([class*="checkbox"]):not([class*="icon"]) {
+        background-color: ${cardBg} !important;
+      }
+
+      /* 6. 文字颜色 */
+      body, p, li, dd, dt, td, th, label, legend,
+      h1, h2, h3, h4, h5, h6,
+      article, main, section,
+      .text, .title, .desc, .description {
+        color: ${theme.text} !important;
+      }
+
+      /* 7. 内联元素 */
+      strong, em, b, i, u, small, mark, del, ins, sub, sup {
+        color: ${theme.text} !important;
+      }
+      mark {
+        background-color: ${themeName === 'dark' ? '#665500' : '#fff3cd'} !important;
+      }
+
+      /* 8. 链接颜色 */
+      a:not([class*="btn"]):not([class*="button"]):not([role="button"]):not([class*="nav"]):not([class*="menu"]) {
+        color: ${theme.link} !important;
+      }
+      a:not([class*="btn"]):not([class*="button"]):not([role="button"]):not([class*="nav"]):not([class*="menu"]):visited {
+        color: ${theme.link} !important;
+        opacity: 0.85;
+      }
+      a:not([class*="btn"]):not([class*="button"]):not([role="button"]):hover {
+        opacity: 0.8;
+      }
+
+      /* 9. 表格 */
+      table {
+        background-color: ${theme.background} !important;
+      }
+      td, th {
+        background-color: ${theme.background} !important;
+        border-color: ${theme.text}25 !important;
+      }
+      tr:nth-child(even) td {
+        background-color: ${cardBg} !important;
+      }
+
+      /* 10. 代码块 */
+      pre, code, kbd, samp, var,
+      .code, .codeblock, .highlight,
+      [class*="code"]:not([class*="icon"]) {
+        background-color: ${codeBg} !important;
+        color: ${theme.text} !important;
+      }
+
+      /* 11. 引用和分隔线 */
+      blockquote, q {
+        background-color: ${cardBg} !important;
+        color: ${theme.text} !important;
+        border-left-color: ${theme.link} !important;
+      }
+      hr {
+        border-color: ${theme.text}20 !important;
+        background-color: ${theme.text}20 !important;
+      }
+
+      /* 12. 列表 */
+      ul, ol, dl {
+        color: ${theme.text} !important;
+      }
     }
   `;
 }
@@ -192,6 +301,9 @@ function removeAllEffects() {
 // 应用设置
 function applySettings(settings) {
   currentSettings = { ...DEFAULT_SETTINGS, ...settings };
+  if (!currentSettings.customSettings || typeof currentSettings.customSettings !== 'object' || Array.isArray(currentSettings.customSettings)) {
+    currentSettings.customSettings = {};
+  }
 
   if (!currentSettings.enabled) {
     removeAllEffects();
@@ -202,13 +314,24 @@ function applySettings(settings) {
   const domain = getCurrentDomain();
   const siteSettings = currentSettings.customSettings[domain];
 
-  if (siteSettings) {
-    applyBlueFilter(siteSettings.blueFilter ?? currentSettings.blueFilter);
-    applyTheme(siteSettings.theme ?? currentSettings.theme);
-  } else {
-    applyBlueFilter(currentSettings.blueFilter);
-    applyTheme(currentSettings.theme);
+  // 站点禁用：常见竞品（如 Dark Reader）提供站点列表作为兼容性兜底
+  if (siteSettings?.disabled) {
+    removeAllEffects();
+    return;
   }
+
+  // 获取当前应使用的主题和蓝光过滤设置
+  let blueFilter = siteSettings?.blueFilter ?? currentSettings.blueFilter;
+  let theme = siteSettings?.theme ?? currentSettings.theme;
+
+  // 只有在开启自动检测且用户未明确选择深色主题时才自动切换
+  // 当用户选择深色主题后切换其他主题时，autoDetectDarkMode 会被设为 false
+  if (currentSettings.autoDetectDarkMode && theme !== 'dark' && detectDarkMode()) {
+    theme = 'dark';
+  }
+
+  applyBlueFilter(blueFilter);
+  applyTheme(theme);
 }
 
 // 监听来自 popup 的消息

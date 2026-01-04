@@ -10,9 +10,14 @@
   <div class="container">
     <!-- 头部 -->
     <header class="header">
-      <div class="logo">
-        <span class="logo-icon">🌿</span>
-        <span class="logo-text">护眼阅读助手</span>
+      <div class="header-row">
+        <div class="logo">
+          <span class="logo-icon">🌿</span>
+          <span class="logo-text">护眼阅读助手</span>
+        </div>
+        <button class="btn-reset" id="resetBtn" title="一键恢复最佳护眼设置">
+          默认设置
+        </button>
       </div>
     </header>
 
@@ -70,9 +75,17 @@
           <span class="site-icon">🌐</span>
           <span class="site-domain" id="currentDomain">-</span>
         </div>
-        <button class="btn-save" id="saveSiteBtn" title="为此网站保存当前设置">
-          记住设置
-        </button>
+        <div class="site-actions">
+          <button class="btn-site-toggle" id="toggleSiteBtn" title="在此网站禁用/启用护眼效果">
+            此站禁用
+          </button>
+          <button class="btn-save" id="saveSiteBtn" title="为此网站保存当前设置">
+            记住设置
+          </button>
+        </div>
+      </div>
+      <div class="site-disabled-hint" id="siteDisabledHint">
+        ⛔ 此网站已禁用护眼效果
       </div>
       <div class="site-saved-hint" id="siteSavedHint">
         ✓ 已为此网站保存设置

@@ -7,7 +7,16 @@ const DEFAULT_SETTINGS = {
   enabled: false,
   theme: 'green',
   blueFilter: 30,
-  customSettings: {}
+  customSettings: {},
+  autoDetectDarkMode: true
+};
+
+// 推荐的最佳护眼配置
+const RECOMMENDED_SETTINGS = {
+  enabled: true,
+  theme: 'green',
+  blueFilter: 30,
+  autoDetectDarkMode: true
 };
 
 // 当前设置
@@ -36,9 +45,12 @@ const elements = {
   themeSection: null,
   themeBtns: null,
   currentDomain: null,
+  toggleSiteBtn: null,
   saveSiteBtn: null,
+  siteDisabledHint: null,
   siteSavedHint: null,
-  siteMemorySection: null
+  siteMemorySection: null,
+  resetBtn: null
 };
 
 // 初始化 DOM 元素引用
@@ -50,9 +62,18 @@ function initElements() {
   elements.themeSection = document.getElementById('themeSection');
   elements.themeBtns = document.querySelectorAll('.theme-btn');
   elements.currentDomain = document.getElementById('currentDomain');
+  elements.toggleSiteBtn = document.getElementById('toggleSiteBtn');
   elements.saveSiteBtn = document.getElementById('saveSiteBtn');
+  elements.siteDisabledHint = document.getElementById('siteDisabledHint');
   elements.siteSavedHint = document.getElementById('siteSavedHint');
   elements.siteMemorySection = document.getElementById('siteMemorySection');
+  elements.resetBtn = document.getElementById('resetBtn');
+}
+
+function hasSitePreferences(siteSettings) {
+  if (!siteSettings || typeof siteSettings !== 'object') return false;
+  return Object.prototype.hasOwnProperty.call(siteSettings, 'theme') ||
+    Object.prototype.hasOwnProperty.call(siteSettings, 'blueFilter');
 }
 
 // 更新 UI 显示
@@ -62,6 +83,9 @@ function updateUI() {
 
   // 获取当前网站特定设置或全局设置
   const siteSettings = currentSettings.customSettings[currentDomain];
+  const isSiteDisabled = siteSettings?.disabled === true;
+  const hasSiteSettings = hasSitePreferences(siteSettings);
+
   const activeTheme = siteSettings?.theme ?? currentSettings.theme;
   const activeBlueFilter = siteSettings?.blueFilter ?? currentSettings.blueFilter;
 
@@ -75,16 +99,23 @@ function updateUI() {
   });
 
   // 控制面板启用/禁用状态
-  const isDisabled = !currentSettings.enabled;
-  elements.blueFilterSection.classList.toggle('disabled', isDisabled);
-  elements.themeSection.classList.toggle('disabled', isDisabled);
-  elements.siteMemorySection.classList.toggle('disabled', isDisabled);
+  const isGlobalDisabled = !currentSettings.enabled;
+  const isControlDisabled = isGlobalDisabled || isSiteDisabled;
+  elements.blueFilterSection.classList.toggle('disabled', isControlDisabled);
+  elements.themeSection.classList.toggle('disabled', isControlDisabled);
+  elements.siteMemorySection.classList.toggle('disabled', isGlobalDisabled);
 
   // 网站记忆状态
-  const hasSiteSettings = !!currentSettings.customSettings[currentDomain];
   elements.saveSiteBtn.classList.toggle('saved', hasSiteSettings);
   elements.saveSiteBtn.textContent = hasSiteSettings ? '已保存' : '记住设置';
   elements.siteSavedHint.classList.toggle('show', hasSiteSettings);
+
+  // 网站禁用状态
+  if (elements.toggleSiteBtn) {
+    elements.toggleSiteBtn.classList.toggle('site-disabled', isSiteDisabled);
+    elements.toggleSiteBtn.textContent = isSiteDisabled ? '启用此站' : '此站禁用';
+    elements.siteDisabledHint.classList.toggle('show', isSiteDisabled);
+  }
 }
 
 // 保存设置到存储
@@ -142,7 +173,8 @@ function handleBlueFilterInput() {
   elements.blueFilterValue.textContent = `${value}%`;
 
   // 如果当前网站有特定设置，也更新它
-  if (currentSettings.customSettings[currentDomain]) {
+  const siteSettings = currentSettings.customSettings[currentDomain];
+  if (hasSitePreferences(siteSettings)) {
     currentSettings.customSettings[currentDomain].blueFilter = value;
   }
 
@@ -156,10 +188,29 @@ function handleBlueFilterInput() {
 // 事件处理：主题选择
 function handleThemeSelect(theme) {
   currentSettings.theme = theme;
+  // 用户手动选择主题后，禁用自动深色模式检测
+  // 这样用户从深色主题切换到其他主题时不会被自动覆盖
+  currentSettings.autoDetectDarkMode = false;
 
   // 如果当前网站有特定设置，也更新它
-  if (currentSettings.customSettings[currentDomain]) {
+  const siteSettings = currentSettings.customSettings[currentDomain];
+  if (hasSitePreferences(siteSettings)) {
     currentSettings.customSettings[currentDomain].theme = theme;
+  }
+
+  updateUI();
+  saveSettings();
+}
+
+// 事件处理：重置为推荐设置
+function handleReset() {
+  // 保留自定义网站设置，只重置全局设置
+  const customSettings = currentSettings.customSettings;
+  currentSettings = { ...RECOMMENDED_SETTINGS, customSettings };
+
+  // 如果当前网站有特定设置，也删除它以使用全局设置
+  if (currentSettings.customSettings[currentDomain]) {
+    delete currentSettings.customSettings[currentDomain];
   }
 
   updateUI();
@@ -170,17 +221,49 @@ function handleThemeSelect(theme) {
 function handleSaveSite() {
   if (!currentDomain) return;
 
-  const hasSiteSettings = !!currentSettings.customSettings[currentDomain];
+  const existing = currentSettings.customSettings[currentDomain];
+  const siteSettings = (existing && typeof existing === 'object' && !Array.isArray(existing)) ? { ...existing } : {};
+  const hasPrefs = hasSitePreferences(siteSettings);
 
-  if (hasSiteSettings) {
-    // 已有设置，删除它
-    delete currentSettings.customSettings[currentDomain];
+  if (hasPrefs) {
+    // 已有偏好设置，清除偏好（保留 disabled 标记）
+    delete siteSettings.theme;
+    delete siteSettings.blueFilter;
+    if (Object.keys(siteSettings).length === 0) {
+      delete currentSettings.customSettings[currentDomain];
+    } else {
+      currentSettings.customSettings[currentDomain] = siteSettings;
+    }
   } else {
-    // 保存当前设置到网站
+    // 保存当前偏好到网站（保留 disabled 标记）
     currentSettings.customSettings[currentDomain] = {
+      ...siteSettings,
       theme: currentSettings.theme,
       blueFilter: currentSettings.blueFilter
     };
+  }
+
+  updateUI();
+  saveSettings();
+}
+
+// 事件处理：在此站点禁用/启用
+function handleToggleSite() {
+  if (!currentDomain) return;
+
+  const existing = currentSettings.customSettings[currentDomain];
+  const siteSettings = (existing && typeof existing === 'object' && !Array.isArray(existing)) ? { ...existing } : {};
+
+  if (siteSettings.disabled) {
+    delete siteSettings.disabled;
+  } else {
+    siteSettings.disabled = true;
+  }
+
+  if (Object.keys(siteSettings).length === 0) {
+    delete currentSettings.customSettings[currentDomain];
+  } else {
+    currentSettings.customSettings[currentDomain] = siteSettings;
   }
 
   updateUI();
@@ -198,7 +281,16 @@ function bindEvents() {
     });
   });
 
+  if (elements.toggleSiteBtn) {
+    elements.toggleSiteBtn.addEventListener('click', handleToggleSite);
+  }
+
   elements.saveSiteBtn.addEventListener('click', handleSaveSite);
+
+  // 重置按钮
+  if (elements.resetBtn) {
+    elements.resetBtn.addEventListener('click', handleReset);
+  }
 }
 
 // 加载设置
@@ -207,6 +299,9 @@ async function loadSettings() {
     const result = await chrome.storage.sync.get('eyeCareSettings');
     if (result.eyeCareSettings) {
       currentSettings = { ...DEFAULT_SETTINGS, ...result.eyeCareSettings };
+    }
+    if (!currentSettings.customSettings || typeof currentSettings.customSettings !== 'object' || Array.isArray(currentSettings.customSettings)) {
+      currentSettings.customSettings = {};
     }
   } catch (error) {
     console.error('加载设置失败:', error);

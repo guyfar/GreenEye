@@ -11,7 +11,8 @@ chrome.runtime.onInstalled.addListener(async (details) => {
       enabled: false,
       theme: 'green',
       blueFilter: 30,
-      customSettings: {}
+      customSettings: {},
+      autoDetectDarkMode: true
     };
 
     await chrome.storage.sync.set({ eyeCareSettings: defaultSettings });
